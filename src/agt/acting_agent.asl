@@ -4,6 +4,17 @@
 // that describes a Thing of type https://ci.mines-stetienne.fr/kg/ontology#PhantomX
 robot_td("https://raw.githubusercontent.com/Interactions-HSG/example-tds/main/tds/leubot1.ttl").
 
+/* Rules */ 
+role_goal(R, G):-
+	role_mission(R,_,M) &
+	mission_goal(M,G).
+
+has_plans_for(G) :-
+	.relevant_plans({+!G},LP) & LP \== [].
+
+i_have_plans_for(R):-
+	not(role_goal(R,G) & not has_plans_for(G)).
+
 /* Initial goals */
 !start. // the agent has the goal to start
 
@@ -30,20 +41,28 @@ robot_td("https://raw.githubusercontent.com/Interactions-HSG/example-tds/main/td
 	.print("I will manifest the temperature: ", Celcius);
 	makeArtifact("covnerter", "tools.Converter", [], ConverterId); // creates a converter artifact
 	convert(Celcius, -20.00, 20.00, 200.00, 830.00, Degrees)[artifact_id(ConverterId)]; // converts Celcius to binary degress based on the input scale
-	.print("Temperature Manifesting (moving robotic arm to): ", Degrees);
+	.print("Temperature Manifesting (moving robotic arm to): ", Degrees).
 
-	/* 
-	 * If you want to test with the real robotic arm, 
-	 * follow the instructions here: https://github.com/HSG-WAS-SS23/exercise-8/blob/main/README.md#test-with-the-real-phantomx-reactor-robot-arm
-	 */
-	// creates a ThingArtifact based on the TD of the robotic arm
-	makeArtifact("leubot1", "org.hyperagents.jacamo.artifacts.wot.ThingArtifact", [Location, true], Leubot1Id); 
++role_available(Role, GroupName, OrgName) <-
+	// Join workspace
+	joinWorkspace(OrgName, WspId);
+	.print("Joined workspace ", OrgName);
 	
-	// sets the API key for controlling the robotic arm as an authenticated user
-	//setAPIKey("77d7a2250abbdb59c6f6324bf1dcddb5")[artifact_id(leubot1)];
+	// Focus on org & group artifacts (this is necessary to have i_have_plans_for(Role) working)
+	lookupArtifact(OrgName, OrgArtId)[wid(WspId)];
+	focus(OrgArtId)[wid(WspId)];
+	lookupArtifact(GroupName, GrArtId)[wid(WspId)];
+	focus(GrArtId);
+	.print("Got notification for ", Role, " in organization ", OrgName)
 
-	// invokes the action onto:SetWristAngle for manifesting the temperature with the wrist of the robotic arm
-	invokeAction("https://ci.mines-stetienne.fr/kg/ontology#SetWristAngle", ["https://www.w3.org/2019/wot/json-schema#IntegerSchema"], [Degrees])[artifact_id(leubot1)].
+	// Check if the agents has matching plans, if so it will adopt the role
+	if(i_have_plans_for(Role)) {
+		.print("I have plans for role ", Role);
+		adoptRole(Role)[artifact_id(GrArtId)];
+		.print("Joined ", GroupName, " in ", OrgName, " as ", Role);
+	} else {
+		.print("I don't have plans for role ", Role);
+	}.
 
 /* Import behavior of agents that work in CArtAgO environments */
 { include("$jacamoJar/templates/common-cartago.asl") }

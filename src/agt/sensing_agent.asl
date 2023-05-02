@@ -2,6 +2,9 @@
 
 
 /* Initial beliefs and rules */
+has_plans_for(G):-
+	role_mission(R,_,M) &
+	mission_goal(M,G).
 
 /* Initial goals */
 !start. // the agent has the goal to start
@@ -15,6 +18,32 @@
 @start_plan
 +!start : true <-
 	.print("Hello world").
+
++new_gr(OrgName, GroupName) <- 	
+	// Join the workspace
+	.print("Received notification of new group: ", GroupName)
+	joinWorkspace(OrgName, WspId)
+	.print("Joined workspace ", OrgName)
+
+	// Focus on the org and group artifacts
+	lookupArtifact(OrgName, OrgArtId)[wid(WspId)]
+	focus(OrgArtId)[wid(WspId)]
+	
+	lookupArtifact(GroupName, GrArtId)[wid(WspId)]
+	focus(GrArtId)[wid(WspId)]
+
+	// If the agent does have plan for the goal read_temperature and there is not enough players yet,
+	// the agent will adopt the role temperature_reader
+	if(has_plans_for(read_temperature)) {
+		if(not has_enough_players_for(temperature_reader)){
+			adoptRole(temperature_reader)[artifact_id(GrArtId)]
+			.print("Joined ", GroupName, " in ", GroupName, " as temperature_reader")
+		} else {
+			.print("There are enough temperature readers already!")
+		}
+	} else {
+		.print("I do not have plans for temperature reader.")
+	}.
 
 /* 
  * Plan for reacting to the addition of the goal !read_temperature
